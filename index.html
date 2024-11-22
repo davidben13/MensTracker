@@ -54,9 +54,10 @@
     const cycleLength = 28;
     const today = new Date();
     const startDate = new Date('2024-11-01'); // Update to actual start date
-    const currentCycleDay = ((today - startDate) / (1000 * 60 * 60 * 24)) % cycleLength + 1;
-    cycleDaySpan.textContent = Math.floor(currentCycleDay);
+    const currentCycleDay = Math.floor(((today - startDate) / (1000 * 60 * 60 * 24)) % cycleLength + 1);
+    cycleDaySpan.textContent = currentCycleDay;
 
+    // Retrieve saved data or initialize if empty
     let savedData = JSON.parse(localStorage.getItem('cycleData')) || {};
     let selectedFlags = savedData[currentCycleDay] || {};
 
@@ -87,26 +88,25 @@
     function toggleFlag(button, flag) {
       button.classList.toggle('selected');
       selectedFlags[flag] = button.classList.contains('selected');
-      initializeFlags(); // Re-render flags with updated sorting
     }
 
     // Save flags
     function saveFlags() {
       savedData[currentCycleDay] = selectedFlags;
       localStorage.setItem('cycleData', JSON.stringify(savedData));
-      alert('Data saved for Cycle Day ' + Math.floor(currentCycleDay));
+      alert('Data saved for Cycle Day ' + currentCycleDay);
     }
 
-    // Load saved data on page load
+    // Load saved flags and initialize UI
     function loadSavedFlags() {
-      const saved = savedData[currentCycleDay];
-      if (saved) {
-        selectedFlags = saved;
-        initializeFlags();
+      if (!savedData[currentCycleDay]) {
+        savedData[currentCycleDay] = {};
       }
+      selectedFlags = savedData[currentCycleDay];
+      initializeFlags();
     }
 
-    // Initialize
+    // Initialize app
     loadSavedFlags();
   </script>
 </body>
