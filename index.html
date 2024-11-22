@@ -39,7 +39,6 @@
   <script>
     const username = "your-github-username"; // Replace with your GitHub username
     const repo = "your-repository-name"; // Replace with your repository name
-    const token = "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"; // Replace with your GitHub Personal Access Token
     const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/data.json`;
 
     const cycleDay = Math.floor((new Date() - new Date('2024-11-01')) / (1000 * 60 * 60 * 24)) % 28 + 1;
@@ -48,20 +47,35 @@
     let flags = ["Interested in Sex", "Rude", "Receptive to Feedback", "Happy", "Needs Activities", "Needs to Knock Off List", "Self Deprecation", "OMG I'm So Behind", "Easy Going", "Hardcore PMS"];
     let selectedFlags = [];
 
-    // Load JSON data from GitHub
-    async function loadData() {
-      const response = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const file = await response.json();
-      const content = JSON.parse(atob(file.content)); // Decode Base64 content
+    // Fetch token from token.env
+    async function fetchToken() {
+      const response = await fetch('./token.env');
+      const text = await response.text();
+      const tokenMatch = text.match(/GITHUB_TOKEN=(.+)/);
+      if (!tokenMatch) throw new Error("Token not found in token.env");
+      return tokenMatch[1].trim();
+    }
 
-      if (content.users && content.users["user@example.com"] && content.users["user@example.com"][`day${cycleDay}`]) {
-        selectedFlags = content.users["user@example.com"][`day${cycleDay}`];
+    // Load JSON data from GitHub
+    async function loadData(token) {
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (!response.ok) throw new Error(`Error fetching data: ${response.statusText}`);
+
+        const file = await response.json();
+        const content = JSON.parse(atob(file.content)); // Decode Base64 content
+
+        if (content.users && content.users["user@example.com"] && content.users["user@example.com"][`day${cycleDay}`]) {
+          selectedFlags = content.users["user@example.com"][`day${cycleDay}`];
+        }
+        renderFlags();
+      } catch (error) {
+        console.error("Error loading data:", error);
       }
-      renderFlags();
     }
 
     // Render buttons
@@ -93,37 +107,42 @@
 
     // Save flags to GitHub
     async function saveFlags() {
-      const response = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const file = await response.json();
-      const content = JSON.parse(atob(file.content));
+      try {
+        const token = await fetchToken();
+        const response = await fetch(apiUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const file = await response.json();
+        const content = JSON.parse(atob(file.content));
 
-      if (!content.users) content.users = {};
-      if (!content.users["user@example.com"]) content.users["user@example.com"] = {};
-      content.users["user@example.com"][`day${cycleDay}`] = selectedFlags;
+        if (!content.users) content.users = {};
+        if (!content.users["user@example.com"]) content.users["user@example.com"] = {};
+        content.users["user@example.com"][`day${cycleDay}`] = selectedFlags;
 
-      const updatedContent = btoa(JSON.stringify(content, null, 2)); // Encode updated content to Base64
+        const updatedContent = btoa(JSON.stringify(content, null, 2)); // Encode updated content to Base64
 
-      await fetch(apiUrl, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: `Update data for day ${cycleDay}`,
-          content: updatedContent,
-          sha: file.sha
-        })
-      });
-      alert("Data saved successfully!");
+        await fetch(apiUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: `Update data for day ${cycleDay}`,
+            content: updatedContent,
+            sha: file.sha
+          })
+        });
+        alert("Data saved successfully!");
+      } catch (error) {
+        console.error("Error saving data:", error);
+      }
     }
 
     // Initialize
-    loadData();
+    fetchToken().then(loadData).catch(error => console.error("Initialization error:", error));
   </script>
 </body>
 </html>
