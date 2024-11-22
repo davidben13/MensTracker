@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cycle Tracker</title>
+  <title>Cycle Tracker (Debug Enabled)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { text-align: center; }
@@ -27,54 +27,103 @@
       color: white;
     }
     button { margin-top: 20px; padding: 10px; cursor: pointer; }
+    #debug {
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      padding: 10px;
+    }
+    .debug-log {
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 150px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
-  <h1>Cycle Day Tracker</h1>
-  <p>Cycle Day: <span id="cycle-day">1</span></p>
+  <h1>Cycle Tracker (Debug Mode)</h1>
 
+  <!-- Debugging Section -->
+  <div id="debug">
+    <h2>Debug Information</h2>
+    <p><strong>Cycle Day:</strong> <span id="debug-cycle-day">N/A</span></p>
+    <p><strong>GitHub API URL:</strong> <span id="debug-api-url">N/A</span></p>
+    <p><strong>Token Status:</strong> <span id="debug-token">Checking...</span></p>
+    <p><strong>Data Fetch Status:</strong> <span id="debug-fetch-status">Not Started</span></p>
+    <div>
+      <h3>Log Output</h3>
+      <div id="debug-log" class="debug-log"></div>
+    </div>
+  </div>
+
+  <p>Cycle Day: <span id="cycle-day">1</span></p>
   <div id="flag-container" class="grid"></div>
   <button onclick="saveFlags()">Save Flags</button>
 
   <script>
-    const username = "your-github-username"; // Replace with your GitHub username
-    const repo = "your-repository-name"; // Replace with your repository name
+    const username = "davidben13";
+    const repo = "MensTracker";
     const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/data.json`;
+    const debug = document.getElementById('debug-log');
+    const debugCycleDay = document.getElementById('debug-cycle-day');
+    const debugApiUrl = document.getElementById('debug-api-url');
+    const debugToken = document.getElementById('debug-token');
+    const debugFetchStatus = document.getElementById('debug-fetch-status');
 
     const cycleDay = Math.floor((new Date() - new Date('2024-11-01')) / (1000 * 60 * 60 * 24)) % 28 + 1;
     document.getElementById('cycle-day').textContent = cycleDay;
+    debugCycleDay.textContent = cycleDay;
+    debugApiUrl.textContent = apiUrl;
 
     let flags = ["Interested in Sex", "Rude", "Receptive to Feedback", "Happy", "Needs Activities", "Needs to Knock Off List", "Self Deprecation", "OMG I'm So Behind", "Easy Going", "Hardcore PMS"];
     let selectedFlags = [];
 
+    // Log helper
+    function logDebug(message) {
+      debug.innerHTML += message + '\n';
+    }
+
     // Fetch token from token.env
     async function fetchToken() {
-      const response = await fetch('./token.env');
-      const text = await response.text();
-      const tokenMatch = text.match(/GITHUB_TOKEN=(.+)/);
-      if (!tokenMatch) throw new Error("Token not found in token.env");
-      return tokenMatch[1].trim();
+      try {
+        const response = await fetch('./token.env');
+        if (!response.ok) throw new Error(`Failed to load token.env: ${response.statusText}`);
+        const text = await response.text();
+        const tokenMatch = text.match(/GITHUB_TOKEN=(.+)/);
+        if (!tokenMatch) throw new Error("Token not found in token.env");
+        debugToken.textContent = "Loaded Successfully";
+        logDebug("Token loaded successfully.");
+        return tokenMatch[1].trim();
+      } catch (error) {
+        debugToken.textContent = "Error";
+        logDebug("Error loading token: " + error.message);
+        throw error;
+      }
     }
 
     // Load JSON data from GitHub
     async function loadData(token) {
       try {
+        debugFetchStatus.textContent = "Fetching...";
         const response = await fetch(apiUrl, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        if (!response.ok) throw new Error(`Error fetching data: ${response.statusText}`);
-
+        if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
         const file = await response.json();
         const content = JSON.parse(atob(file.content)); // Decode Base64 content
+        debugFetchStatus.textContent = "Success";
+        logDebug("Fetched data successfully: " + JSON.stringify(content, null, 2));
 
         if (content.users && content.users["user@example.com"] && content.users["user@example.com"][`day${cycleDay}`]) {
           selectedFlags = content.users["user@example.com"][`day${cycleDay}`];
         }
         renderFlags();
       } catch (error) {
-        console.error("Error loading data:", error);
+        debugFetchStatus.textContent = "Error";
+        logDebug("Error fetching data: " + error.message);
       }
     }
 
@@ -137,12 +186,14 @@
         });
         alert("Data saved successfully!");
       } catch (error) {
-        console.error("Error saving data:", error);
+        logDebug("Error saving data: " + error.message);
       }
     }
 
     // Initialize
-    fetchToken().then(loadData).catch(error => console.error("Initialization error:", error));
+    fetchToken()
+      .then(loadData)
+      .catch(error => logDebug("Initialization error: " + error.message));
   </script>
 </body>
 </html>
