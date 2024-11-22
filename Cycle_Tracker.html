@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cycle Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .flag-button {
+      padding: 10px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+    }
+    .flag-button.selected {
+      background-color: #007BFF;
+      color: white;
+      border-color: #0056b3;
+    }
+    button { margin-top: 20px; padding: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Cycle Day Tracker</h1>
+  <p>Cycle Day: <span id="cycle-day">1</span></p>
+
+  <div id="flag-container" class="grid"></div>
+
+  <button onclick="saveFlags()">Save Flags</button>
+  <button onclick="viewReport()">View Report</button>
+
+  <script>
+    const cycleDaySpan = document.getElementById('cycle-day');
+    const flagContainer = document.getElementById('flag-container');
+
+    // Predefined flags
+    const flags = [
+      "Interested in Sex", "Rude", "Receptive to Feedback",
+      "Happy", "Needs Activities", "Needs to Knock Off List",
+      "Self Deprecation", "OMG I'm So Behind", "Easy Going",
+      "Hardcore PMS"
+    ];
+
+    const cycleLength = 28;
+    const today = new Date();
+    const startDate = new Date('2024-11-01'); // Update to actual start date
+    const currentCycleDay = ((today - startDate) / (1000 * 60 * 60 * 24)) % cycleLength + 1;
+    cycleDaySpan.textContent = Math.floor(currentCycleDay);
+
+    let savedData = JSON.parse(localStorage.getItem('cycleData')) || {};
+    let flagUsage = JSON.parse(localStorage.getItem('flagUsage')) || {};
+
+    // Initialize buttons
+    function initializeFlags() {
+      flagContainer.innerHTML = '';
+      
+      // Sort flags by usage
+      const sortedFlags = flags.sort((a, b) => (flagUsage[b] || 0) - (flagUsage[a] || 0));
+      
+      sortedFlags.forEach(flag => {
+        const button = document.createElement('div');
+        button.className = 'flag-button';
+        button.textContent = flag;
+        button.onclick = () => toggleFlag(button, flag);
+        if (savedData[currentCycleDay] && savedData[currentCycleDay][flag]) {
+          button.classList.add('selected');
+        }
+        flagContainer.appendChild(button);
+      });
+    }
+
+    // Toggle flag state
+    function toggleFlag(button, flag) {
+      button.classList.toggle('selected');
+      if (!savedData[currentCycleDay]) {
+        savedData[currentCycleDay] = {};
+      }
+      savedData[currentCycleDay][flag] = button.classList.contains('selected');
+    }
+
+    // Save flags
+    function saveFlags() {
+      // Count usage of selected flags
+      const selectedFlags = [...document.querySelectorAll('.flag-button.selected')].map(
+        button => button.textContent
+      );
+
+      selectedFlags.forEach(flag => {
+        flagUsage[flag] = (flagUsage[flag] || 0) + 1;
+      });
+
+      localStorage.setItem('cycleData', JSON.stringify(savedData));
+      localStorage.setItem('flagUsage', JSON.stringify(flagUsage));
+      alert('Data saved for Cycle Day ' + Math.floor(currentCycleDay));
+    }
+
+    // View report
+    function viewReport() {
+      let report = 'Cycle Day Flags:
+
+';
+      for (const day in savedData) {
+        report += `Day ${day}: ${JSON.stringify(savedData[day])}
+`;
+      }
+      alert(report);
+    }
+
+    // Reset at midnight
+    function resetData() {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+
+      const timeToMidnight = midnight - now;
+      setTimeout(() => {
+        localStorage.removeItem('cycleData');
+        initializeFlags();
+        resetData(); // Set up next reset
+      }, timeToMidnight);
+    }
+
+    // Initialize
+    initializeFlags();
+    resetData();
+  </script>
+</body>
+</html>
