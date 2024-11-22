@@ -65,14 +65,7 @@
     function initializeFlags() {
       flagContainer.innerHTML = '';
 
-      // Sort flags by selected status
-      const sortedFlags = flags.sort((a, b) => {
-        const selectedA = selectedFlags[a] ? -1 : 1;
-        const selectedB = selectedFlags[b] ? -1 : 1;
-        return selectedA - selectedB;
-      });
-
-      sortedFlags.forEach(flag => {
+      flags.forEach(flag => {
         const button = document.createElement('div');
         button.className = 'flag-button';
         button.textContent = flag;
@@ -97,6 +90,23 @@
       alert('Data saved for Cycle Day ' + currentCycleDay);
     }
 
+    // Clear data at midnight
+    function scheduleMidnightReset() {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0); // Set time to midnight
+      const timeToMidnight = midnight - now;
+
+      setTimeout(() => {
+        savedData = {}; // Clear all saved data
+        localStorage.removeItem('cycleData'); // Remove from localStorage
+        selectedFlags = {}; // Reset for new day
+        initializeFlags(); // Reinitialize buttons
+        alert('New cycle day started. Data has been cleared.');
+        scheduleMidnightReset(); // Schedule next reset
+      }, timeToMidnight);
+    }
+
     // Load saved flags and initialize UI
     function loadSavedFlags() {
       if (!savedData[currentCycleDay]) {
@@ -108,6 +118,7 @@
 
     // Initialize app
     loadSavedFlags();
+    scheduleMidnightReset();
   </script>
 </body>
 </html>
