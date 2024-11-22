@@ -21,12 +21,10 @@
       cursor: pointer;
       text-align: center;
       user-select: none;
-      transition: background-color 0.2s, color 0.2s;
     }
     .flag-button.selected {
       background-color: #007BFF;
       color: white;
-      border-color: #0056b3;
     }
     button { margin-top: 20px; padding: 10px; cursor: pointer; }
   </style>
@@ -36,89 +34,96 @@
   <p>Cycle Day: <span id="cycle-day">1</span></p>
 
   <div id="flag-container" class="grid"></div>
-
   <button onclick="saveFlags()">Save Flags</button>
 
   <script>
-    const cycleDaySpan = document.getElementById('cycle-day');
-    const flagContainer = document.getElementById('flag-container');
+    const username = "your-github-username"; // Replace with your GitHub username
+    const repo = "your-repository-name"; // Replace with your repository name
+    const token = "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"; // Replace with your GitHub Personal Access Token
+    const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/data.json`;
 
-    // Predefined flags
-    const flags = [
-      "Interested in Sex", "Rude", "Receptive to Feedback",
-      "Happy", "Needs Activities", "Needs to Knock Off List",
-      "Self Deprecation", "OMG I'm So Behind", "Easy Going",
-      "Hardcore PMS"
-    ];
+    const cycleDay = Math.floor((new Date() - new Date('2024-11-01')) / (1000 * 60 * 60 * 24)) % 28 + 1;
+    document.getElementById('cycle-day').textContent = cycleDay;
 
-    const cycleLength = 28;
-    const today = new Date();
-    const startDate = new Date('2024-11-01'); // Update to actual start date
-    const currentCycleDay = Math.floor(((today - startDate) / (1000 * 60 * 60 * 24)) % cycleLength + 1);
-    cycleDaySpan.textContent = currentCycleDay;
+    let flags = ["Interested in Sex", "Rude", "Receptive to Feedback", "Happy", "Needs Activities", "Needs to Knock Off List", "Self Deprecation", "OMG I'm So Behind", "Easy Going", "Hardcore PMS"];
+    let selectedFlags = [];
 
-    // Retrieve saved data or initialize if empty
-    let savedData = JSON.parse(localStorage.getItem('cycleData')) || {};
-    let selectedFlags = savedData[currentCycleDay] || {};
+    // Load JSON data from GitHub
+    async function loadData() {
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const file = await response.json();
+      const content = JSON.parse(atob(file.content)); // Decode Base64 content
 
-    // Initialize buttons
-    function initializeFlags() {
-      flagContainer.innerHTML = '';
+      if (content.users && content.users["user@example.com"] && content.users["user@example.com"][`day${cycleDay}`]) {
+        selectedFlags = content.users["user@example.com"][`day${cycleDay}`];
+      }
+      renderFlags();
+    }
 
+    // Render buttons
+    function renderFlags() {
+      const container = document.getElementById('flag-container');
+      container.innerHTML = "";
       flags.forEach(flag => {
         const button = document.createElement('div');
-        button.className = 'flag-button';
         button.textContent = flag;
-        if (selectedFlags[flag]) {
+        button.className = "flag-button";
+        if (selectedFlags.includes(flag)) {
           button.classList.add('selected');
         }
-        button.onclick = () => toggleFlag(button, flag);
-        flagContainer.appendChild(button);
+        button.onclick = () => toggleFlag(flag, button);
+        container.appendChild(button);
       });
     }
 
     // Toggle flag state
-    function toggleFlag(button, flag) {
-      button.classList.toggle('selected');
-      selectedFlags[flag] = button.classList.contains('selected');
-    }
-
-    // Save flags
-    function saveFlags() {
-      savedData[currentCycleDay] = selectedFlags;
-      localStorage.setItem('cycleData', JSON.stringify(savedData));
-      alert('Data saved for Cycle Day ' + currentCycleDay);
-    }
-
-    // Clear data at midnight
-    function scheduleMidnightReset() {
-      const now = new Date();
-      const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0); // Set time to midnight
-      const timeToMidnight = midnight - now;
-
-      setTimeout(() => {
-        savedData = {}; // Clear all saved data
-        localStorage.removeItem('cycleData'); // Remove from localStorage
-        selectedFlags = {}; // Reset for new day
-        initializeFlags(); // Reinitialize buttons
-        alert('New cycle day started. Data has been cleared.');
-        scheduleMidnightReset(); // Schedule next reset
-      }, timeToMidnight);
-    }
-
-    // Load saved flags and initialize UI
-    function loadSavedFlags() {
-      if (!savedData[currentCycleDay]) {
-        savedData[currentCycleDay] = {};
+    function toggleFlag(flag, button) {
+      if (selectedFlags.includes(flag)) {
+        selectedFlags = selectedFlags.filter(f => f !== flag);
+        button.classList.remove('selected');
+      } else {
+        selectedFlags.push(flag);
+        button.classList.add('selected');
       }
-      selectedFlags = savedData[currentCycleDay];
-      initializeFlags();
     }
 
-    // Initialize app
-    loadSavedFlags();
-    scheduleMidnightReset();
+    // Save flags to GitHub
+    async function saveFlags() {
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const file = await response.json();
+      const content = JSON.parse(atob(file.content));
+
+      if (!content.users) content.users = {};
+      if (!content.users["user@example.com"]) content.users["user@example.com"] = {};
+      content.users["user@example.com"][`day${cycleDay}`] = selectedFlags;
+
+      const updatedContent = btoa(JSON.stringify(content, null, 2)); // Encode updated content to Base64
+
+      await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `Update data for day ${cycleDay}`,
+          content: updatedContent,
+          sha: file.sha
+        })
+      });
+      alert("Data saved successfully!");
+    }
+
+    // Initialize
+    loadData();
   </script>
 </body>
 </html>
