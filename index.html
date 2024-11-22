@@ -97,8 +97,17 @@
       alert('Data saved for Cycle Day ' + Math.floor(currentCycleDay));
     }
 
+    // Load saved data on page load
+    function loadSavedFlags() {
+      const saved = savedData[currentCycleDay];
+      if (saved) {
+        selectedFlags = saved;
+        initializeFlags();
+      }
+    }
+
     // Initialize
-    initializeFlags();
+    loadSavedFlags();
   </script>
 </body>
 </html>
